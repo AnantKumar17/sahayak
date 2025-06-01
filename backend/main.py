@@ -2,6 +2,9 @@ from fastapi import FastAPI, BackgroundTasks
 import uvicorn
 import json
 import asyncio
+import logging
+from typing import Optional
+from services.github_reviews import github_service
 from services.gpt_api import query_gpt
 from services.gpt_api import followup_query
 from services.rag_storage import retrieve_similar_reviews
@@ -9,6 +12,9 @@ from services.rag_storage import retrieve_similar_reviews
 # from services.rag_storage import retrieve_similar_reviews
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -20,8 +26,12 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# class CodeSnippet(BaseModel):
+#     code: str
+
 class CodeSnippet(BaseModel):
     code: str
+    pr_number: Optional[int] = None  # New field for PR number
 
 class FollowUpRequest(BaseModel):
     
@@ -32,13 +42,18 @@ class FollowUpRequest(BaseModel):
 # async def root():
 #     return {"message": "API is running"}
 
+# @app.post("/review")
+# def review_code(snippet: CodeSnippet):
+#     print("Reviewing code function")
+#     #review = query_star_coder(snippet.code)
+#     #print(json.dumps(review, indent=4))
+#     #background_tasks.add_task(query_star_coder)
+#     return query_gpt(snippet.code)
+
 @app.post("/review")
 def review_code(snippet: CodeSnippet):
-    print("Reviewing code function")
-    #review = query_star_coder(snippet.code)
-    #print(json.dumps(review, indent=4))
-    #background_tasks.add_task(query_star_coder)
-    return query_gpt(snippet.code)
+    logger.info(f"Reviewing code with PR number: {snippet.pr_number}")
+    return query_gpt(snippet.code, snippet.pr_number)
 
 @app.get("/past_reviews")
 def get_past_reviews(snippet: CodeSnippet):

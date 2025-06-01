@@ -97,8 +97,8 @@ class AdvancedCodeReviewRAG:
         """Retrieve Similar Code Reviews Based on Summary using FAISS & Manual Cosine Similarity"""
 
         client = ChatCompletionsClient(
-        endpoint="https://models.inference.ai.azure.com",
-        credential=AzureKeyCredential("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"),
+        endpoint="https://models.github.ai/inference",
+        credential=AzureKeyCredential("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"),
     )
         # **Step 1: Get Initial Analysis**
 
@@ -127,7 +127,7 @@ class AdvancedCodeReviewRAG:
                 SystemMessage(""""""),
                 UserMessage(prompt_initial),
             ],
-            model="gpt-4o",
+            model="openai/gpt-4o",
             temperature=1,
             max_tokens=1024,
             top_p=1
