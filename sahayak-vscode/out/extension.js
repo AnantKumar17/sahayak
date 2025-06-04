@@ -223,6 +223,149 @@ exports.deactivate = deactivate;
 // context.subscriptions.push(followupCommand);
 // }
 // export function deactivate() {}
+// import * as vscode from 'vscode';
+// import axios from 'axios';
+// let lastAIReview: string | null = null;
+// export function activate(context: vscode.ExtensionContext) {
+//     let reviewCommand = vscode.commands.registerCommand('sahayak.reviewCode', async () => {
+//         const editor = vscode.window.activeTextEditor;
+//         if (!editor) {
+//             vscode.window.showErrorMessage("No active editor found.");
+//             return;
+//         }
+//         const selection = editor.selection;
+//         const code = editor.document.getText(selection);
+//         if (!code.trim()) {
+//             vscode.window.showErrorMessage("Please select some code before running the review.");
+//             return;
+//         }
+//         const prNumberInput = await vscode.window.showInputBox({ 
+//             prompt: "Enter GitHub PR number (optional, press Enter to skip):",
+//             placeHolder: "e.g., 1 (or leave blank)"
+//         });
+//         if (prNumberInput === undefined) {
+//             vscode.window.showErrorMessage("Review cancelled. PR number prompt was dismissed.");
+//             return;
+//         }
+//         const prNumber = prNumberInput ? parseInt(prNumberInput) : undefined;
+//         if (prNumberInput) {
+//             if (isNaN(Number(prNumberInput)) || prNumber! <= 0) {
+//                 vscode.window.showErrorMessage("Invalid PR number. Please enter a valid positive integer.");
+//                 return;
+//             }
+//         }
+//         vscode.window.showInformationMessage("Fetching AI review...");
+//         try {
+//             const response = await axios.post('http://127.0.0.1:8000/review', { 
+//                 code, 
+//                 pr_number: prNumber 
+//             });
+//             if (response.status === 200 && response.data) {
+//                 const aiReview = response.data;
+//                 const languageId = editor.document.languageId;
+//                 let commentPrefix: string;
+//                 if (["python", "shellscript"].includes(languageId)) {
+//                     commentPrefix = "# ";
+//                 } else if (["javascript", "typescript", "java", "c", "cpp", "go", "rust"].includes(languageId)) {
+//                     commentPrefix = "// ";
+//                 } else {
+//                     commentPrefix = "/* ";
+//                 }
+//                 let commentText = `
+// ${commentPrefix} AI Review:
+// ${commentPrefix} - Readability: ${aiReview.readability || "No data"}
+// ${commentPrefix} - Security: ${aiReview.security || "No data"}
+// ${commentPrefix} - Performance: ${aiReview.performance || "No data"}
+// ${commentPrefix} - Best Practices: ${aiReview["best_practices"] || "No data"}
+// ${commentPrefix} - Bugs: ${aiReview.bugs || "No data"}
+// ${commentPrefix} - Overall Analysis: ${aiReview["overall_analysis"] || "No data"}
+// ${commentPrefix} - Suggested Refactored Code:
+// ${(aiReview["suggested_refactored_code"] || "No data").split("\n").map((line: string) => commentPrefix + " " + line).join("\n")}
+// `;
+//                 if (commentPrefix === "/* ") {
+//                     commentText = `/*
+//  AI Review:
+// - Readability: ${aiReview.readability || "No data"}
+// - Security: ${aiReview.security || "No data"}
+// - Performance: ${aiReview.performance || "No data"}
+// - Best Practices: ${aiReview["best_practices"] || "No data"}
+// - Bugs: ${aiReview.bugs || "No data"}
+// - Overall Analysis: ${aiReview["overall_analysis"] || "No data"}
+// - Suggested Refactored Code:
+// ${(aiReview["suggested_refactored_code"] || "No data").split("\n").map((line: string) => "  " + line).join("\n")}
+// */`;
+//                 }
+//                 lastAIReview = commentText;
+//                 const edit = new vscode.WorkspaceEdit();
+//                 const position = new vscode.Position(selection.end.line + 3, 0);
+//                 edit.insert(editor.document.uri, position, commentText);
+//                 await vscode.workspace.applyEdit(edit);
+//                 vscode.window.showInformationMessage("AI review added as inline comment. Use 'Sahayak: Follow-up on Review' for further improvements.");
+//             } else {
+//                 vscode.window.showErrorMessage("API response format unexpected. Check console.");
+//             }
+//         } catch (error: any) {
+//             console.error("Error fetching AI review:", error);
+//             vscode.window.showErrorMessage("Error fetching AI review: " + error.message);
+//         }
+//     });
+//     let followupCommand = vscode.commands.registerCommand('sahayak.followup', async () => {
+//         if (!lastAIReview) {
+//             vscode.window.showErrorMessage("No AI review found. Please run 'Sahayak: Review Code' first.");
+//             return;
+//         }
+//         await vscode.env.clipboard.writeText(lastAIReview);
+//         vscode.window.showInformationMessage("AI review copied. Now enter your follow-up question.");
+//         const question = await vscode.window.showInputBox({ prompt: "Enter your follow-up question for the AI review:" });
+//         if (!question) {
+//             vscode.window.showErrorMessage("Follow-up question was empty.");
+//             return;
+//         }
+//         vscode.window.showInformationMessage("Fetching AI follow-up response...");
+//         try {
+//             const response = await axios.post('http://127.0.0.1:8000/followup', { review: lastAIReview, question: question });
+//             if (response.status === 200 && response.data) {
+//                 const followupData = response.data;
+//                 if (!followupData.response) {
+//                     vscode.window.showErrorMessage("Invalid AI follow-up response format.");
+//                     return;
+//                 }
+//                 const editor = vscode.window.activeTextEditor;
+//                 if (editor) {
+//                     const selection = editor.selection;
+//                     const edit = new vscode.WorkspaceEdit();
+//                     const position = new vscode.Position(selection.end.line + 7, 0);
+//                     let commentPrefix = editor.document.languageId === "python" ? "# " : "// ";
+//                     let followupComment = `\n\n${commentPrefix} AI Follow-up:\n`;
+//                     followupComment += followupData.response
+//                         .split("\n")
+//                         .map((line: string) => 
+//                             line.startsWith(commentPrefix.trim()) ? `${commentPrefix} ${line.trim()}` : `${commentPrefix} ${line}`
+//                         )
+//                         .join("\n") + "\n";
+//                     if (followupData["suggested refactored code"]) {
+//                         followupComment += `\n${commentPrefix} Suggested Refactored Code:\n`;
+//                         const refactoredCodeLines = followupData["suggested refactored code"].split("\n");
+//                         refactoredCodeLines.forEach((line: string) => {
+//                             followupComment += `${commentPrefix} ${line}\n`;
+//                         });
+//                     }
+//                     edit.insert(editor.document.uri, position, followupComment);
+//                     await vscode.workspace.applyEdit(edit);
+//                 }
+//                 vscode.window.showInformationMessage("Follow-up response added as an inline comment.");
+//             } else {
+//                 vscode.window.showErrorMessage("Error in follow-up API response.");
+//             }
+//         } catch (error: any) {
+//             console.error("Error fetching follow-up:", error);
+//             vscode.window.showErrorMessage("Error fetching follow-up: " + error.message);
+//         }
+//     });
+//     context.subscriptions.push(reviewCommand);
+//     context.subscriptions.push(followupCommand);
+// }
+// export function deactivate() {}
 const vscode = __importStar(require("vscode"));
 const axios_1 = __importDefault(require("axios"));
 let lastAIReview = null;
@@ -262,6 +405,7 @@ function activate(context) {
             });
             if (response.status === 200 && response.data) {
                 const aiReview = response.data;
+                console.log('AI Review Response:', JSON.stringify(aiReview, null, 2));
                 const languageId = editor.document.languageId;
                 let commentPrefix;
                 if (["python", "shellscript"].includes(languageId)) {
@@ -278,11 +422,11 @@ ${commentPrefix} AI Review:
 ${commentPrefix} - Readability: ${aiReview.readability || "No data"}
 ${commentPrefix} - Security: ${aiReview.security || "No data"}
 ${commentPrefix} - Performance: ${aiReview.performance || "No data"}
-${commentPrefix} - Best Practices: ${aiReview["best practices"] || "No data"}
+${commentPrefix} - Best Practices: ${aiReview.best_practices || aiReview["best practices"] || "No data"}
 ${commentPrefix} - Bugs: ${aiReview.bugs || "No data"}
-${commentPrefix} - Overall Analysis: ${aiReview["overall analysis"] || "No data"}
+${commentPrefix} - Overall Analysis: ${aiReview.overall_analysis || aiReview["overall analysis"] || "No data"}
 ${commentPrefix} - Suggested Refactored Code:
-${(aiReview["suggested refactored code"] || "No data").split("\n").map((line) => commentPrefix + " " + line).join("\n")}
+${(aiReview.suggested_refactored_code || aiReview["suggested refactored code"] || "No data").split("\n").map((line) => commentPrefix + " " + line).join("\n")}
 `;
                 if (commentPrefix === "/* ") {
                     commentText = `/*
@@ -290,11 +434,11 @@ ${(aiReview["suggested refactored code"] || "No data").split("\n").map((line) =>
 - Readability: ${aiReview.readability || "No data"}
 - Security: ${aiReview.security || "No data"}
 - Performance: ${aiReview.performance || "No data"}
-- Best Practices: ${aiReview["best practices"] || "No data"}
+- Best Practices: ${aiReview.best_practices || aiReview["best practices"] || "No data"}
 - Bugs: ${aiReview.bugs || "No data"}
-- Overall Analysis: ${aiReview["overall analysis"] || "No data"}
+- Overall Analysis: ${aiReview.overall_analysis || aiReview["overall analysis"] || "No data"}
 - Suggested Refactored Code:
-${(aiReview["suggested refactored code"] || "No data").split("\n").map((line) => "  " + line).join("\n")}
+${(aiReview.suggested_refactored_code || aiReview["suggested refactored code"] || "No data").split("\n").map((line) => "  " + line).join("\n")}
 */`;
                 }
                 lastAIReview = commentText;
@@ -340,16 +484,16 @@ ${(aiReview["suggested refactored code"] || "No data").split("\n").map((line) =>
                     const edit = new vscode.WorkspaceEdit();
                     const position = new vscode.Position(selection.end.line + 7, 0);
                     let commentPrefix = editor.document.languageId === "python" ? "# " : "// ";
-                    let followupComment = `\n\n${commentPrefix} AI Follow-up:\n`;
+                    let followupComment = `\n\n${commentPrefix}Follow-up:\n`;
                     followupComment += followupData.response
                         .split("\n")
-                        .map((line) => line.startsWith(commentPrefix.trim()) ? `${commentPrefix} ${line.trim()}` : `${commentPrefix} ${line}`)
+                        .map((line) => line.startsWith(commentPrefix.trim()) ? `${commentPrefix} ${line.trim()}` : `${commentPrefix}${line}`)
                         .join("\n") + "\n";
-                    if (followupData["suggested refactored code"]) {
-                        followupComment += `\n${commentPrefix} Suggested Refactored Code:\n`;
-                        const refactoredCodeLines = followupData["suggested refactored code"].split("\n");
+                    if (followupData.suggested_refactored_code || followupData["suggested refactored code"]) {
+                        followupComment += `\n${commentPrefix}Suggested Refactored Code:\n`;
+                        const refactoredCodeLines = (followupData.suggested_refactored_code || followupData["suggested refactored code"]).split("\n");
                         refactoredCodeLines.forEach((line) => {
-                            followupComment += `${commentPrefix} ${line}\n`;
+                            followupComment += `${commentPrefix}${line}\n`;
                         });
                     }
                     edit.insert(editor.document.uri, position, followupComment);
