@@ -27,6 +27,7 @@ export interface ReviewResponse {
   bugs: string;
   overall_analysis: string;
   'suggested_refactored_code': string;
+  pr_comments?: Array<{ pr_number: number; text: string; similarity: number }>;
 }
 
 export interface PastReview {
