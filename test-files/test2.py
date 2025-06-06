@@ -1,4 +1,4 @@
-def factorial(n):
-    if n == 0:
-        return 1
-    return n * factorial(n - 1)
+def write_to_file(fname, val):
+    file = open(fname, 'w')
+    file.write(val)
+    file.close()

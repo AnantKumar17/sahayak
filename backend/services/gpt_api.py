@@ -187,7 +187,7 @@ import logging
 
 client = ChatCompletionsClient(
     endpoint="https://models.github.ai/inference",
-    credential=AzureKeyCredential("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"),
+    credential=AzureKeyCredential("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"),
 )
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -242,7 +242,7 @@ def query_gpt(code_snippet: str, pr_number: Optional[int] = None):
                 SystemMessage(""),
                 UserMessage(prompt_final),
             ],
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-4o",
             temperature=1,
             max_tokens=4096,
             top_p=1
@@ -307,7 +307,7 @@ def followup_query(ai_review, followup_question):
             SystemMessage("You are a code review assistant helping developers understand and improve their code."),
             UserMessage(prompt),
         ],
-        model="openai/gpt-4o-mini",
+        model="openai/gpt-4o",
         temperature=1,
         max_tokens=4096,
         top_p=1

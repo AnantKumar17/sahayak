@@ -358,13 +358,11 @@ class AdvancedCodeReviewRAG:
 
     def retrieve_similar_reviews(self, code_snippet, top_k=2):
         """Retrieve Similar Code Reviews with FAISS Similarity Scores"""
-
         client = ChatCompletionsClient(
             endpoint="https://models.github.ai/inference",
-            credential=AzureKeyCredential("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"),
+            credential=AzureKeyCredential("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"),
         )
-        # **Step 1: Get Initial Analysis**
-
+        # Step 1: Get Initial Analysis
         prompt_initial = f"""
         You are a senior software architect reviewing the following code snippet.
 
@@ -382,15 +380,14 @@ class AdvancedCodeReviewRAG:
         Ensure that:
         - The response clearly explains the **functionality of the code** before assessing its quality.
         - The **key review aspects (readability, security, performance, best practices, potential bugs)** are included naturally.
-
         """
 
         response_initial = client.complete(
             messages=[
-                SystemMessage(""""""),
+                SystemMessage(""),
                 UserMessage(prompt_initial),
             ],
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-4o",
             temperature=1,
             max_tokens=1024,
             top_p=1
@@ -398,7 +395,7 @@ class AdvancedCodeReviewRAG:
 
         ai_response_initial = response_initial.choices[0].message.content.strip()
 
-        # 🔹 Extract JSON for overall analysis
+        # Extract JSON for overall analysis
         json_match = re.search(r"\{.*\}", ai_response_initial, re.DOTALL)
         if json_match:
             json_string = json_match.group(0).strip()
@@ -413,7 +410,7 @@ class AdvancedCodeReviewRAG:
 
         # Generate and Normalize Query Embedding
         query_embedding = self._get_embedding(overall_analysis)
-        query_embedding = query_embedding / np.linalg.norm(query_embedding)  # 🔥 Ensure Normalization
+        query_embedding = query_embedding / np.linalg.norm(query_embedding)  # Ensure Normalization
 
         print("\n🔍 Query Embedding:", query_embedding[:5])  # Debugging first 5 values
 
@@ -421,12 +418,18 @@ class AdvancedCodeReviewRAG:
         conn = sqlite3.connect(self.DB_PATH)
         cursor = conn.cursor()
 
-        # 🔍 Perform FAISS Search
+        # # Perform FAISS Search
+        # faiss_similarities, indices = self.faiss_index.search(
+        #     query_embedding.reshape(1, -1), min(top_k, self.faiss_index.ntotal)
+        # )
+
+        # Perform FAISS Search with more candidates
+        faiss_search_limit = min(top_k * 2, self.faiss_index.ntotal)  # Retrieve more candidates
         faiss_similarities, indices = self.faiss_index.search(
-            query_embedding.reshape(1, -1), min(top_k, self.faiss_index.ntotal)
+            query_embedding.reshape(1, -1), faiss_search_limit
         )
 
-        similar_reviews = []
+        valid_candidates = []
 
         for faiss_similarity, index in zip(faiss_similarities[0], indices[0]):
             if index < 0:
@@ -434,14 +437,14 @@ class AdvancedCodeReviewRAG:
 
             actual_db_id = self.id_map[index]
 
-            # 🔹 Fetch Stored Embedding from Database
+            # Fetch Stored Embedding from Database
             cursor.execute("SELECT embedding FROM code_reviews WHERE id = ?", (actual_db_id,))
             stored_embedding_blob = cursor.fetchone()
             if not stored_embedding_blob:
                 continue
             stored_embedding = np.frombuffer(stored_embedding_blob[0], dtype=np.float32)
 
-            # 🔹 Fetch Stored Text for Verification
+            # Fetch Stored Text for Verification
             cursor.execute("SELECT review_summary FROM code_reviews WHERE id = ?", (actual_db_id,))
             stored_text = cursor.fetchone()
             if not stored_text:
@@ -449,11 +452,11 @@ class AdvancedCodeReviewRAG:
             stored_text = stored_text[0]
             print(f"\n📜 Stored Text: {stored_text}")
 
-            # 🔹 Recompute Embedding for Stored Text
+            # Recompute Embedding for Stored Text
             recomputed_embedding = self._get_embedding(stored_text)
             recomputed_embedding = recomputed_embedding / np.linalg.norm(recomputed_embedding)
 
-            # 🔹 Compute Manual Cosine Similarity
+            # Compute Manual Cosine Similarity
             manual_cosine_sim = np.dot(stored_embedding, query_embedding) / (
                 np.linalg.norm(stored_embedding) * np.linalg.norm(query_embedding)
             )
@@ -465,11 +468,17 @@ class AdvancedCodeReviewRAG:
             if manual_cosine_sim < self.SIMILARITY_THRESHOLD:
                 continue
 
-            similar_reviews.append({"text": stored_text, "similarity": float(faiss_similarity)})
+            valid_candidates.append({
+                "text": stored_text,
+                "similarity": float(manual_cosine_sim)  # Convert to Python float
+            })
 
-            if len(similar_reviews) >= top_k:
-                break
-
+        # Sort by similarity and return top_k
+        sorted_candidates = sorted(valid_candidates, key=lambda x: x["similarity"], reverse=True)
+        print(f"sorted candidates: {sorted_candidates}")
+        similar_reviews = sorted_candidates[:top_k]
+        print(f"similar reviews: {similar_reviews}")
+        
         conn.close()
         return similar_reviews if similar_reviews else []
 
