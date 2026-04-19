@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Database & ML artifacts
+*.db
+*.pkl
+*.sqlite
+*.sqlite3
+
+# Node / frontend
+node_modules/
+.next/
+dist/
+build/
+
+# VS Code extension compiled output
+sahayak-vscode/out/
+
+# OS
+.DS_Store
