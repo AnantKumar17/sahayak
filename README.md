@@ -212,3 +212,8 @@ This project was developed at **SAP Labs, Bangalore** as part of the M.Tech Soft
 - Explores FAISS + BAAI/BGE-3 for efficient semantic retrieval of past code reviews
 
 **Keywords:** AI-powered code review, LLM, Retrieval-Augmented Generation (RAG), Context-Aware Refactoring, Software Quality, Developer Productivity, GenAI, IDE Integration, Full-Stack Development
+
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
